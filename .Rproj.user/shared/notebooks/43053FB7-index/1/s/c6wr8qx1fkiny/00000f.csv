@@ -1,0 +1,13 @@
+"0","var3 <- Model.3$apVar"
+"0","var3 "
+"1","[1]"
+"1"," ""Non-positive definite approximate variance-covariance"""
+"1","
+"
+"0","par3 <- attr(var3, ""Pars"")"
+"0","par3"
+"1","NULL
+"
+"0","vc3  <- exp(par3)^2"
+"2","Error in exp(par3) : non-numeric argument to mathematical function
+"

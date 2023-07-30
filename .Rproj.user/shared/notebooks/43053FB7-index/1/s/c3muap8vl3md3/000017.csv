@@ -1,0 +1,3 @@
+"0",""
+"0","res <- rma(yi=Intervention_Time, sei=Standard_Error, data=Interv.Time)"
+"0","funnel(res, xlab=""Trends During the Intervention Phase"", ylab=""Standard Errors"")"

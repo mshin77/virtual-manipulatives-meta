@@ -1,0 +1,910 @@
+---
+title: "Web-based mathematics instruction with teacher-guided communication on visualizing and problem-solving of fraction multiplication word problems"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+     toc: true
+     toc_float: true
+     code_folding: hide
+     self_contained: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE,
+  message = FALSE, 
+  warning = FALSE)
+```
+
+This webpage contains the coded dataset, outputs, and R codes used for the data analysis in Authors (2023). The scripts have been posted on an online data repository, accessible at <https://osf.io/4jqty/?view_only=afae20537dfa41dba0615f0dffc9aa58>.
+
+
+# Dataset {.tabset}
+
+## Outcomes by Question Types 
+
+```{r}
+suppressPackageStartupMessages({
+  library(kableExtra)
+  library(readxl)
+  library(DT)
+  library(tidyr)
+  library(dplyr)
+  library(downloadthis)
+  library(ggh4x)
+  library(broom)
+  library(gridExtra)
+  library(SingleCaseES)
+  library(nlme)
+  library(clubSandwich)
+  library(lmeInfo)
+  library(ggplot2)
+})
+
+web_math_data <- read.csv("data/web_math_data.csv")
+
+web_math_data_kb <- web_math_data %>%
+  kbl(align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped","hover","condensed"),
+    full_width = T,
+    font_size = 12,
+    fixed_thead = T) %>%
+  scroll_box(height = "400px")
+
+web_math_data %>%
+  download_this(
+    output_name = "Authors (2023) Dataset, Outcomes by Question Types",
+    output_extension = ".xlsx",
+    button_label = "Download",
+    button_type = "default",
+    has_icon = TRUE,
+    icon = "fa fa-save",
+    class = "buttom_small")
+```
+
+
+```{r, echo = FALSE}
+web_math_data_kb
+```
+
+## Outcomes by Word Problem Types 
+
+```{r}
+web_math_problem <- read.csv("data/web_math_data_problem.csv")
+
+web_math_problem_kb <- web_math_problem %>%
+  kbl(align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped","hover","condensed"),
+    full_width = T,
+    font_size = 12,
+    fixed_thead = T) %>%
+  scroll_box(height = "400px")
+
+web_math_problem %>%
+  download_this(
+    output_name = "Authors (2023) Dataset, Outcomes by Word Problem Types",
+    output_extension = ".xlsx",
+    button_label = "Download",
+    button_type = "default",
+    has_icon = TRUE,
+    icon = "fa fa-save",
+    class = "buttom_small")
+```
+
+
+```{r, echo = FALSE}
+web_math_problem_kb
+```
+
+# Graphing {.tabset}
+
+## Baseline Stability 
+
+```{r, fig.width=8, fig.height=6.5}
+baseline_v <- read.csv("data/baseline_v.csv")
+intervention_v <- read.csv("data/intervention_v.csv")
+
+baseline_v$max_A_date <-as.Date(baseline_v$max_A_date, format = "%m/%d/%Y")
+intervention_v$max_B_date <-as.Date(intervention_v$max_B_date, format = "%m/%d/%Y")
+web_math_data$date <-as.Date(web_math_data$date, format = "%m/%d/%Y")
+web_math_problem$date <-as.Date(web_math_problem$date, format = "%m/%d/%Y")
+web_math_data$case <- paste0("Case ", web_math_data$case, sep = "")
+baseline_v$case <- paste0("Case ", baseline_v$case, sep = "")
+intervention_v$case <- paste0("Case ", intervention_v$case, sep = "")
+
+ticks <- function(n) {function(limits) pretty(limits, n)}
+
+web_math_data <- web_math_data %>%
+  group_by(case, date) %>%
+  mutate(average_outcome = round(mean(outcome),0)) 
+
+web_math_data_baseline <- web_math_data %>%
+  filter(phase== "Baseline") %>%
+  group_by(case) %>%
+  mutate(median = median(average_outcome)) %>%
+  mutate(upper_threshold = round(median + 0.25 * median, digits = 2)) %>%
+  mutate(lower_threshold = round(median - 0.25 * median, digits = 2))
+
+average_outcome_baseline.plot <- web_math_data %>%
+  ggplot(aes(x = date, y = average_outcome, group = phase)) +
+  facet_wrap2(case ~ ., ncol = 1, axes = "all", remove_labels = "all") +
+  geom_line(data = web_math_data %>% filter(phase %in% c("Baseline", "Intervention", "Maintenance")),
+            aes(group = paste(phase, question_type)),
+            linewidth = 0.5) +
+  geom_point(size = 2) +
+  scale_x_date(labels = function(zero) gsub("^0", "", strftime(zero, "%m/%d")),
+               date_breaks = "4 day",
+               expand = c(0.02, 0.02)) +
+  scale_y_continuous(breaks = ticks(5)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 11),
+    legend.position ="top",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 11),
+    legend.title.align = 0.5,
+    axis.line = element_line(),          
+    strip.text.x = element_text(color = "#3B3B3B", size = 11),
+    axis.line.x = element_line(color = "#3B3B3B"),
+    axis.text.x = element_text(size = 11, color = "#3B3B3B", angle = 45, hjust = 1),
+    axis.ticks = element_line(color = "#3B3B3B"),
+    axis.ticks.length = unit(0.1, "cm"),  
+    axis.text.y = element_text(size = 11, color = "#3B3B3B"),
+    axis.title = element_text(face = "bold", size = 11, color = "#3B3B3B")
+  ) +
+  labs(
+    x = "Date",
+    y = "Average Percentage Correct",
+    title = ""
+  ) +
+  guides(shape="none") +
+  geom_hline(data = web_math_data_baseline, aes(yintercept = web_math_data_baseline$upper_threshold),
+             linetype = "longdash", linewidth = 0.5, color = "#CC5500") +
+  geom_hline(data = web_math_data_baseline, aes(yintercept = web_math_data_baseline$median),
+             linetype = "solid", linewidth = 0.5, color = "#4c4c4c") +
+  geom_hline(data = web_math_data_baseline, aes(yintercept = web_math_data_baseline$lower_threshold),
+             linetype = "longdash", linewidth = 0.5, color = "#CC5500") +
+  geom_vline(data = baseline_v, aes(xintercept = baseline_v$max_A_date + 0.5),
+             linetype = "longdash", linewidth = 0.5, color = "#4c4c4c") +
+  geom_vline(data = intervention_v, aes(xintercept = intervention_v$max_B_date + 0.5),
+             linetype = "longdash", linewidth = 0.5, color = "#4c4c4c") 
+
+average_outcome_baseline.plot
+```
+
+## Student Performance
+
+```{r, fig.width=8, fig.height=6.5}
+web_math_data$question_type <- web_math_data$question_type %>% as.factor() 
+question_names <- c("Problem-Solving", "Visualization") 
+names(question_names) <- c("solving", "visual")
+web_math_data$question_type <- as.factor(question_names[web_math_data$question_type])
+web_math_data$question_type <- relevel(web_math_data$question_type, "Visualization")
+
+outcome.plot <- web_math_data %>%
+  ggplot(aes(x = date, y = outcome, color = as.factor(question_type), group = question_type)) +
+  facet_wrap2(case ~ ., ncol = 1, axes = "all", remove_labels = "all") +
+  geom_line(data = web_math_data %>% filter(phase %in% c("Baseline", "Intervention", "Maintenance")),
+            aes(group = paste(phase, question_type)),
+            linewidth = 0.5) +
+  geom_point(size = 2, aes(shape = question_type)) +
+  scale_shape_manual(values = c(16, 17)) +
+  scale_x_date(labels = function(zero) gsub("^0", "", strftime(zero, "%m/%d")),
+               date_breaks = "4 day",
+               expand = c(0.02, 0.02)) +
+  scale_y_continuous(breaks = ticks(5)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 11),
+    legend.position ="top",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 11),
+    legend.title.align = 0.5,
+    axis.line = element_line(),          
+    strip.text.x = element_text(color = "#3B3B3B", size = 11),
+    axis.line.x = element_line(color = "#3B3B3B"),
+    axis.text.x = element_text(size = 11, color = "#3B3B3B", angle = 45, hjust = 1),
+    axis.ticks = element_line(color = "#3B3B3B"),
+    axis.ticks.length = unit(0.1, "cm"),  
+    axis.text.y = element_text(size = 11, color = "#3B3B3B"),
+    axis.title = element_text(face = "bold", size = 11, color = "#3B3B3B")
+  ) +
+  labs(
+    x = "Date",
+    y = "Percentage Correct",
+    title = ""
+  ) +
+  guides(shape="none") +
+  guides(color = guide_legend(title = "Question Type"), shape = guide_legend(title="Question Type")) +
+  geom_vline(data = baseline_v, aes(xintercept = baseline_v$max_A_date + 0.5),
+             linetype = "longdash", linewidth = 0.5, color = "#4c4c4c") +
+  geom_vline(data = intervention_v, aes(xintercept = intervention_v$max_B_date + 0.5),
+             linetype = "longdash", linewidth = 0.5, color = "#4c4c4c") 
+
+outcome.plot 
+```
+
+<br>
+
+# Visual Analysis {.tabset}
+
+## Within-Phase Patterns
+
+```{r}
+lm_desc <- web_math_data %>%
+  group_by(case, phase, question_type) %>%
+  do(tidy(lm(outcome ~ day, data = .))) %>%
+  filter(term == "day") %>% 
+  mutate_if(is.numeric, ~round(., 2)) %>%
+  select(case, phase, question_type, estimate, std.error)
+
+lm_desc$trend <- lm_desc$estimate
+lm_desc$SE <- lm_desc$std.error
+
+outcome_desc <- web_math_data %>%
+  group_by(case, phase, question_type) %>%
+  summarise(min = min(outcome), 
+            max = max(outcome), 
+            level = mean(outcome),
+            median = median(outcome),
+            SD = sd(outcome),
+            range = paste(min, "-", max)) %>% 
+  mutate_if(is.numeric, ~round(., 2)) %>%
+  select(everything(), -min, -max)
+
+within_td <- list(outcome_desc, lm_desc) %>% purrr::reduce(left_join) 
+
+within_td$SD <- paste0("(", within_td $SD, ")")
+within_td$level <- paste(within_td $level, within_td $SD)
+colnames(within_td )[colnames(within_td ) == "level"] <- "level (SD)"
+
+within_td $SE <- paste0("(", within_td $SE, ")")
+within_td $trend <- paste(within_td $trend, within_td $SE)
+colnames(within_td )[colnames(within_td ) == "trend"] <- "trend (SE)"
+
+within_td  %>% 
+  select(case, phase, question_type, "level (SD)", "trend (SE)", range) %>%
+  kbl(align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped","hover","condensed"),
+    full_width = T,
+    font_size = 12,
+    fixed_thead = T) %>%
+  scroll_box(height = "350px")
+```
+
+<br>
+
+## Between-Phase Patterns 
+
+#### **Baseline vs Intervention** 
+
+```{r}
+outcome_AB <- batch_calc_ES(dat = web_math_data,
+                            grouping = c(case, question_type),
+                            condition = phase,
+                            outcome = outcome,
+                            session_number = day,
+                            baseline_phase = "Baseline",
+                            intervention_phase = "Intervention",
+                            ES = c("Tau_BC"),
+                            improvement = "increase",
+                            format = "wide") %>%
+  mutate_if(is.numeric, ~round(., 2)) %>%
+  kbl(align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped","hover","condensed"),
+    full_width = T,
+    font_size = 12,
+    fixed_thead = T) 
+
+outcome_AB
+```
+
+#### **Intervention vs Maintenance** 
+
+```{r}
+outcome_AM <- batch_calc_ES(dat = web_math_data,
+                            grouping = c(case, question_type),
+                            condition = phase,
+                            outcome = outcome,
+                            session_number = day,
+                            baseline_phase = "Baseline",
+                            intervention_phase = "Maintenance",
+                            ES = c("Tau_BC"),
+                            improvement = "increase",
+                            format = "wide") %>%
+  mutate_if(is.numeric, ~round(., 2)) %>%
+  kbl(align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped","hover","condensed"),
+    full_width = T,
+    font_size = 12,
+    fixed_thead = T) 
+
+outcome_AM
+```
+
+<br>
+
+# Multilevel Model (Visualization) {.tabset}
+
+## Model 1 
+
+#### **Null model**
+
+```{r}
+options(width = 100)
+
+web_math_problem$case <- paste0("Case ", web_math_problem$case, sep = "")
+
+web_math_problem$wp_type <- web_math_problem$wp_type %>% as.factor() 
+wp_names <- c("Combination", "Comparison", "Partition") 
+names(wp_names) <- c("combination", "comparison", "partition")
+web_math_problem$wp_type <- as.factor(wp_names[web_math_problem$wp_type])
+
+web_math_data_p_visual <- web_math_problem %>% filter(visualization == 1)
+
+visual.model.1 <- lme(outcome ~ 1,
+                      data = web_math_data_p_visual,
+                      method = "REML",
+                      random = ~  1 | case,
+                      control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                   opt="optim",optimMethod="BFGS"))
+
+visual.model.1.vcov <- vcovCR(visual.model.1, type = "CR2")
+visual.model.1.crve <- coef_test(visual.model.1, vcov = visual.model.1.vcov , test = "Satterthwaite") 
+
+visual.model.1.crve$sig <-
+  case_when(
+    is.na(visual.model.1.crve$p_Satt) ~ "",
+    visual.model.1.crve$p_Satt < 0.001 ~ "***",
+    visual.model.1.crve$p_Satt < 0.01 ~ "**",
+    visual.model.1.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+visual.model.1.d <- visual.model.1.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+visual.model.1.crve.combined <- cbind(visual.model.1.crve, visual.model.1.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+visual.model.1.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components**
+
+```{r,comment=NA}
+VarCorr(visual.model.1) 
+```
+
+#### **Autocorrelation**
+
+```{r, fig.align='center', fig.width=7, fig.height=4}
+acf_visual.model.1 <- ACF(visual.model.1, maxLag=15)
+acf_visual.model.1.plot <- plot(acf_visual.model.1, alpha = .05)
+acf_visual.model.1.value <- tidy(acf_visual.model.1$ACF) %>%
+  mutate(acf = round(x, 2)) %>%
+  select(acf)
+acf_visual.model.1.tb <- tableGrob(acf_visual.model.1.value[1:10,], rows = NULL, theme = ttheme_default(base_size = 10))
+grid.arrange(acf_visual.model.1.plot, acf_visual.model.1.tb, nrow = 1, widths = c(0.85, 0.15))
+```
+
+<br>
+
+## Model 2 
+
+#### **AR(1) correlation structure and homogeneous level-1 variances**
+
+```{r}
+options(width = 100)
+
+visual.model.2 <- lme(outcome ~
+                        time_A_A +
+                        B + time_B_B +
+                        M + time_M_M,
+                      data = web_math_data_p_visual,
+                      method = "REML",
+                      random = ~  B | case,
+                      correlation = corAR1(form = ~ 1 | case),
+                      control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                   opt="optim",optimMethod="BFGS"))
+
+visual.model.2.vcov <- vcovCR(visual.model.2, type = "CR2")
+visual.model.2.crve <- coef_test(visual.model.2, vcov = visual.model.2.vcov , test = "Satterthwaite") 
+
+visual.model.2.crve$sig <-
+  case_when(
+    is.na(visual.model.2.crve$p_Satt) ~ "",
+    visual.model.2.crve$p_Satt < 0.001 ~ "***",
+    visual.model.2.crve$p_Satt < 0.01 ~ "**",
+    visual.model.2.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+visual.model.2.d <- visual.model.2.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+visual.model.2.crve.combined <- cbind(visual.model.2.crve, visual.model.2.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+visual.model.2.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(visual.model.2)
+```
+
+<br>
+
+## Model 3
+ 
+#### **AR(1) correlation structure and heterogenous level-1 variances** 
+
+```{r}
+options(width = 100)
+
+visual.model.3 <- update(visual.model.2, weights = varIdent(form = ~ 1 | phase))
+
+visual.model.3.vcov <- vcovCR(visual.model.3, type = "CR2")
+visual.model.3.crve <- coef_test(visual.model.3, vcov = visual.model.3.vcov , test = "Satterthwaite") 
+
+visual.model.3.crve$sig <-
+  case_when(
+    is.na(visual.model.3.crve$p_Satt) ~ "",
+    visual.model.3.crve$p_Satt < 0.001 ~ "***",
+    visual.model.3.crve$p_Satt < 0.01 ~ "**",
+    visual.model.3.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+visual.model.3.d <- visual.model.3.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+visual.model.3.crve.combined <- cbind(visual.model.3.crve, visual.model.3.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+visual.model.3.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(visual.model.3) 
+```
+
+#### **Heterogeneous level-1 variances**
+
+```{r,comment=NA}
+var_visual.model.3 <- extract_varcomp(visual.model.3, separate_variances = T) 
+var_visual.model.3 <- var_visual.model.3$sigma_sq %>% as.data.frame() 
+colnames(var_visual.model.3) <- NULL
+var_visual.model.3 
+```
+
+<br>
+
+## Model 4
+
+#### **Adding word problem types as a moderator**
+
+```{r}
+options(width = 100)
+
+visual.model.4 <- lme(outcome ~
+                            time_A_A +
+                            B + time_B_B +
+                            M + time_M_M +
+                            partition + time_A_A:partition +
+                            B:partition  + time_B_B:partition  +
+                            M:partition  + time_M_M:partition  +
+                            comparison + time_A_A:comparison +
+                            B:comparison + time_B_B:comparison +
+                            M:comparison + time_M_M:comparison,
+                          data = web_math_data_p_visual,
+                    method = "REML",
+                    random = ~  B | case,
+                    correlation = corAR1(form = ~ 1 | case),
+                    weights = varIdent(form = ~ 1 | phase),
+                    control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                 opt="optim",optimMethod="BFGS"))
+
+visual.model.4.vcov <- vcovCR(visual.model.4, type = "CR2")
+visual.model.4.crve <- coef_test(visual.model.4, vcov = visual.model.4.vcov , test = "Satterthwaite") 
+
+visual.model.4.crve$sig <-
+  case_when(
+    is.na(visual.model.4.crve$p_Satt) ~ "",
+    visual.model.4.crve$p_Satt < 0.001 ~ "***",
+    visual.model.4.crve$p_Satt < 0.01 ~ "**",
+    visual.model.4.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+visual.model.4.d <- visual.model.4.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+visual.model.4.crve.combined <- cbind(visual.model.4.crve, visual.model.4.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+visual.model.4.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(visual.model.4) 
+```
+
+#### **Heterogeneous level-1 variances**
+
+```{r,comment=NA}
+var_visual.model.4 <- extract_varcomp(visual.model.4, separate_variances = T) 
+var_visual.model.4 <- var_visual.model.4$sigma_sq %>% as.data.frame() 
+colnames(var_visual.model.4) <- NULL
+var_visual.model.4 
+```
+
+<br> 
+
+# Multilevel Modeling (Solving) {.tabset}
+
+## Model 1 
+
+#### **Null model**
+
+```{r}
+options(width = 100)
+
+web_math_data_p_solving <- web_math_problem %>% filter(solving == 1)
+
+solving.model.1 <- lme(outcome ~ 1,
+                      data = web_math_data_p_solving,
+                      method = "REML",
+                      random = ~  1 | case,
+                      control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                   opt="optim",optimMethod="BFGS"))
+
+solving.model.1.vcov <- vcovCR(solving.model.1, type = "CR2")
+solving.model.1.crve <- coef_test(solving.model.1, vcov = solving.model.1.vcov , test = "Satterthwaite") 
+
+solving.model.1.crve$sig <-
+  case_when(
+    is.na(solving.model.1.crve$p_Satt) ~ "",
+    solving.model.1.crve$p_Satt < 0.001 ~ "***",
+    solving.model.1.crve$p_Satt < 0.01 ~ "**",
+    solving.model.1.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+solving.model.1.d <- solving.model.1.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+solving.model.1.crve.combined <- cbind(solving.model.1.crve, solving.model.1.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+solving.model.1.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(solving.model.1) 
+```
+
+#### **Autocorrelation**
+
+```{r, fig.align='center', fig.width=7, fig.height=4}
+acf_solving.model.1 <- ACF(solving.model.1, maxLag=15)
+acf_solving.model.1.plot <- plot(acf_solving.model.1, alpha = .05)
+acf_solving.model.1.value <- tidy(acf_solving.model.1$ACF) %>%
+  mutate(acf = round(x, 2)) %>%
+  select(acf)
+acf_solving.model.1.tb <- tableGrob(acf_solving.model.1.value[1:10,], rows = NULL, theme = ttheme_default(base_size = 10))
+grid.arrange(acf_solving.model.1.plot, acf_solving.model.1.tb, nrow = 1, widths = c(0.85, 0.15))
+```
+
+<br>
+
+## Model 2 
+
+#### **AR(1) correlation structure and homogeneous level-1 variances**
+
+```{r}
+options(width = 100)
+
+solving.model.2 <- lme(outcome ~
+                        time_A_A +
+                        B + time_B_B +
+                        M + time_M_M,
+                      data = web_math_data_p_solving,
+                      method = "REML",
+                      random = ~  B | case,
+                      correlation = corAR1(form = ~ 1 | case),
+                      control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                   opt="optim",optimMethod="BFGS"))
+
+solving.model.2.vcov <- vcovCR(solving.model.2, type = "CR2")
+solving.model.2.crve <- coef_test(solving.model.2, vcov = solving.model.2.vcov , test = "Satterthwaite") 
+
+solving.model.2.crve$sig <-
+  case_when(
+    is.na(solving.model.2.crve$p_Satt) ~ "",
+    solving.model.2.crve$p_Satt < 0.001 ~ "***",
+    solving.model.2.crve$p_Satt < 0.01 ~ "**",
+    solving.model.2.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+solving.model.2.d <- solving.model.2.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+solving.model.2.crve.combined <- cbind(solving.model.2.crve, solving.model.2.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+solving.model.2.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(solving.model.2) 
+```
+
+<br>
+
+## Model 3
+ 
+#### **AR(1) correlation structure and heterogenous level-1 variances** 
+
+```{r}
+options(width = 100)
+
+solving.model.3 <- lme(outcome ~
+                        time_A_A +
+                        B + time_B_B +
+                        M + time_M_M,
+                      data = web_math_data_p_solving,
+                      method = "REML",
+                      random = ~  B | case,
+                      correlation = corAR1(form = ~ 1 | case),
+                      weights = varIdent(form = ~ 1 | phase),
+                      control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                   opt="optim",optimMethod="BFGS"))
+
+solving.model.3.vcov <- vcovCR(solving.model.3, type = "CR2")
+solving.model.3.crve <- coef_test(solving.model.3, vcov = solving.model.3.vcov , test = "Satterthwaite") 
+
+solving.model.3.crve$sig <-
+  case_when(
+    is.na(solving.model.3.crve$p_Satt) ~ "",
+    solving.model.3.crve$p_Satt < 0.001 ~ "***",
+    solving.model.3.crve$p_Satt < 0.01 ~ "**",
+    solving.model.3.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+solving.model.3.d <- solving.model.3.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+solving.model.3.crve.combined <- cbind(solving.model.3.crve, solving.model.3.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+solving.model.3.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(solving.model.3)
+```
+
+#### **Heterogeneous level-1 variances**
+
+```{r,comment=NA}
+var_solving.model.3 <- extract_varcomp(solving.model.3, separate_variances = T) 
+var_solving.model.3 <- var_solving.model.3$sigma_sq %>% as.data.frame() 
+colnames(var_solving.model.3) <- NULL
+var_solving.model.3 
+```
+
+<br>
+
+## Model 4
+
+#### **Adding word problem types as a moderator**
+
+```{r}
+options(width = 100)
+
+solving.model.4 <- lme(outcome ~
+                            time_A_A +
+                            B + time_B_B +
+                            M + time_M_M +
+                            partition + time_A_A:partition +
+                            B:partition  + time_B_B:partition  +
+                            M:partition  + time_M_M:partition  +
+                            comparison + time_A_A:comparison +
+                            B:comparison + time_B_B:comparison +
+                            M:comparison + time_M_M:comparison,
+                          data = web_math_data_p_solving,
+                    method = "REML",
+                    random = ~  B | case,
+                    correlation = corAR1(form = ~ 1 | case),
+                    weights = varIdent(form = ~ 1 | phase),
+                    control=list(maxIter=100,msMaxIter=100,tolerance=1e-3,
+                                 opt="optim",optimMethod="BFGS"))
+
+solving.model.4.vcov <- vcovCR(solving.model.4, type = "CR2")
+solving.model.4.crve <- coef_test(solving.model.4, vcov = solving.model.4.vcov , test = "Satterthwaite") 
+
+solving.model.4.crve$sig <-
+  case_when(
+    is.na(solving.model.4.crve$p_Satt) ~ "",
+    solving.model.4.crve$p_Satt < 0.001 ~ "***",
+    solving.model.4.crve$p_Satt < 0.01 ~ "**",
+    solving.model.4.crve$p_Satt < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+
+solving.model.4.d <- solving.model.4.crve %>% 
+  mutate(d = 2 * abs(tstat) / sqrt(df_Satt)) %>%
+  select(d)
+
+solving.model.4.crve.combined <- cbind(solving.model.4.crve, solving.model.4.d) %>%
+  mutate_if(is.numeric, ~round(., 3)) %>% tibble() %>%
+  rename(Estimate = beta,
+         "t-stat" = tstat,
+         "d.f. (Satt)" = df_Satt,
+         "p-val (Satt)" = p_Satt)
+
+solving.model.4.crve.combined %>% 
+  datatable(options = list(
+    initComplete = JS("
+      function(settings, json) {
+        $(this.api().table().header()).css({
+          'font-family': 'Arial, sans-serif',
+          'font-size': '12px',
+        });
+      }
+    ")
+  )) %>%
+  formatStyle(columns = colnames(.$x$data), `font-size` = "12px")
+```
+
+#### **Variance components** 
+
+```{r,comment=NA}
+VarCorr(solving.model.4) 
+```
+
+#### **Heterogeneous level-1 variances**
+
+```{r,comment=NA}
+var_solving.model.4 <- extract_varcomp(solving.model.4, separate_variances = T) 
+var_solving.model.4 <- var_solving.model.4$sigma_sq %>% as.data.frame() 
+colnames(var_solving.model.4) <- NULL
+var_solving.model.4 
+```
+

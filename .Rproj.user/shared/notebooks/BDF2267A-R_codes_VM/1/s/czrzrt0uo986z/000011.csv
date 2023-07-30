@@ -1,0 +1,5 @@
+"0","intervals(Model.3)"
+"2","Error in intervals.lme(Model.3) : 
+  cannot get confidence intervals on var-cov components: Non-positive definite approximate variance-covariance
+ Consider 'which = ""fixed""'
+"

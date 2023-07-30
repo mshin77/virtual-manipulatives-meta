@@ -1,0 +1,5 @@
+"0","library(readxl)"
+"0","library(metafor)"
+"0",""
+"0","Interv <- read_excel(""Interv.xlsx"")"
+"0","Interv # Display data."

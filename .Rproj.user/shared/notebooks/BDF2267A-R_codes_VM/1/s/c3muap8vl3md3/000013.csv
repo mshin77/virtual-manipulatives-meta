@@ -1,0 +1,3 @@
+"0",""
+"0","res <- rma(yi=Intervention, sei=Standard_Error, data=Interv)"
+"0","funnel(res, xlab=""Immediate Effect"", ylab=""Standard Errors"")"
